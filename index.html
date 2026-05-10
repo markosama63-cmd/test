@@ -1,0 +1,539 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import numpy as np
+
+class Process:
+    """Process class representing a single process"""
+    def _init_(self, pid, arrival, burst, priority=0):
+        self.pid = pid
+        self.arrival = arrival
+        self.burst = burst
+        self.remaining = burst  # For SRTF
+        self.priority = priority
+        self.start_time = -1
+        self.finish_time = 0
+        self.waiting_time = 0
+        self.turnaround_time = 0
+        self.response_time = -1
+        
+    def reset(self):
+        """Reset process state for new simulation"""
+        self.remaining = self.burst
+        self.start_time = -1
+        self.finish_time = 0
+        self.waiting_time = 0
+        self.turnaround_time = 0
+        self.response_time = -1
+
+
+class SRTFScheduler:
+    """SRTF (Shortest Remaining Time First) Scheduler"""
+    
+    @staticmethod
+    def simulate(processes):
+        # Reset all processes
+        for p in processes:
+            p.reset()
+        
+        time = 0
+        completed = 0
+        n = len(processes)
+        ready_queue = []
+        gantt = []
+        last_process = None
+        start_time = 0
+        
+        # Sort by arrival time for initial processing
+        processes.sort(key=lambda x: x.arrival)
+        
+        while completed < n:
+            # Add all arrived processes to ready queue
+            for p in processes:
+                if p.arrival <= time and p.remaining > 0 and p not in ready_queue:
+                    ready_queue.append(p)
+            
+            if ready_queue:
+                # Sort by remaining time (shortest first)
+                ready_queue.sort(key=lambda x: x.remaining)
+                current = ready_queue[0]
+                
+                # Set response time if first time
+                if current.response_time == -1:
+                    current.response_time = time - current.arrival
+                
+                # Record Gantt chart
+                if last_process != current:
+                    if last_process is not None:
+                        gantt.append((last_process, start_time, time))
+                    start_time = time
+                    last_process = current
+                
+                # Execute for 1 unit
+                current.remaining -= 1
+                time += 1
+                
+                # Check if process completed
+                if current.remaining == 0:
+                    current.finish_time = time
+                    current.turnaround_time = current.finish_time - current.arrival
+                    current.waiting_time = current.turnaround_time - current.burst
+                    ready_queue.remove(current)
+                    completed += 1
+            else:
+                # No process ready, CPU idle
+                if last_process is not None:
+                    gantt.append((last_process, start_time, time))
+                    last_process = None
+                time += 1
+        
+        # Add last segment
+        if last_process is not None:
+            gantt.append((last_process, start_time, time))
+        
+        return gantt, processes
+
+
+class RoundRobinScheduler:
+    """Round Robin Scheduler with configurable time quantum"""
+    
+    def _init_(self, quantum=4):
+        self.quantum = quantum
+    
+    def simulate(self, processes):
+        # Reset all processes
+        for p in processes:
+            p.reset()
+        
+        time = 0
+        completed = 0
+        n = len(processes)
+        ready_queue = []
+        gantt = []
+        remaining_burst = {p: p.burst for p in processes}
+        
+        # Sort by arrival time
+        processes.sort(key=lambda x: x.arrival)
+        
+        # Initialize with first process
+        for p in processes:
+            if p.arrival <= time and p not in ready_queue and remaining_burst[p] > 0:
+                ready_queue.append(p)
+        
+        last_process = None
+        start_time = 0
+        
+        while completed < n:
+            if ready_queue:
+                current = ready_queue.pop(0)
+                
+                # Set response time
+                if current.response_time == -1:
+                    current.response_time = time - current.arrival
+                
+                # Record Gantt
+                if last_process != current:
+                    if last_process is not None:
+                        gantt.append((last_process, start_time, time))
+                    start_time = time
+                    last_process = current
+                
+                # Execute for quantum or remaining time
+                exec_time = min(self.quantum, remaining_burst[current])
+                time += exec_time
+                remaining_burst[current] -= exec_time
+                
+                # Add newly arrived processes to queue
+                for p in processes:
+                    if p.arrival <= time and p not in ready_queue and remaining_burst[p] > 0:
+                        ready_queue.append(p)
+                
+                # Re-add current if not finished
+                if remaining_burst[current] > 0:
+                    ready_queue.append(current)
+                else:
+                    current.finish_time = time
+                    current.turnaround_time = current.finish_time - current.arrival
+                    current.waiting_time = current.turnaround_time - current.burst
+                    completed += 1
+            else:
+                # CPU idle
+                if last_process is not None:
+                    gantt.append((last_process, start_time, time))
+                    last_process = None
+                time += 1
+                
+                # Check for new arrivals
+                for p in processes:
+                    if p.arrival <= time and p not in ready_queue and remaining_burst[p] > 0:
+                        ready_queue.append(p)
+        
+        # Add last segment
+        if last_process is not None:
+            gantt.append((last_process, start_time, time))
+        
+        return gantt, processes
+
+
+class SchedulingSimulator:
+    """Main GUI Application"""
+    
+    def _init_(self, root):
+        self.root = root
+        self.root.title("Process Scheduling Simulator: Round Robin vs SRTF")
+        self.root.geometry("1400x800")
+        
+        self.processes = []
+        self.next_pid = 1
+        
+        # Colors for Gantt chart
+        self.colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
+                       '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2']
+        
+        self.setup_ui()
+        
+        # Load default scenario
+        self.load_default_scenario()
+    
+    def setup_ui(self):
+        # Main container
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Left panel - Process Management
+        left_frame = ttk.LabelFrame(main_frame, text="Process Management", padding="10")
+        left_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=5)
+        
+        # Input fields
+        ttk.Label(left_frame, text="Arrival Time:").grid(row=0, column=0, sticky=tk.W)
+        self.arrival_entry = ttk.Entry(left_frame, width=10)
+        self.arrival_entry.grid(row=0, column=1, padx=5)
+        
+        ttk.Label(left_frame, text="Burst Time:").grid(row=1, column=0, sticky=tk.W)
+        self.burst_entry = ttk.Entry(left_frame, width=10)
+        self.burst_entry.grid(row=1, column=1, padx=5)
+        
+        ttk.Label(left_frame, text="Priority:").grid(row=2, column=0, sticky=tk.W)
+        self.priority_entry = ttk.Entry(left_frame, width=10)
+        self.priority_entry.insert(0, "1")
+        self.priority_entry.grid(row=2, column=1, padx=5)
+        
+        # Add process button
+        ttk.Button(left_frame, text="Add Process", command=self.add_process).grid(row=3, column=0, columnspan=2, pady=5)
+        
+        # Process list (Treeview)
+        self.process_tree = ttk.Treeview(left_frame, columns=('Arrival', 'Burst', 'Priority'), 
+                                          height=10, selectmode='browse')
+        self.process_tree.heading('#0', text='PID')
+        self.process_tree.heading('Arrival', text='Arrival')
+        self.process_tree.heading('Burst', text='Burst')
+        self.process_tree.heading('Priority', text='Priority')
+        self.process_tree.column('#0', width=50)
+        self.process_tree.column('Arrival', width=70)
+        self.process_tree.column('Burst', width=70)
+        self.process_tree.column('Priority', width=70)
+        self.process_tree.grid(row=4, column=0, columnspan=2, pady=10)
+        
+        ttk.Button(left_frame, text="Remove Selected", command=self.remove_process).grid(row=5, column=0, columnspan=2, pady=5)
+        ttk.Button(left_frame, text="Clear All", command=self.clear_all).grid(row=6, column=0, columnspan=2, pady=5)
+        
+        # Quick load scenarios
+        ttk.Label(left_frame, text="Quick Load Scenarios:").grid(row=7, column=0, columnspan=2, pady=5)
+        ttk.Button(left_frame, text="Scenario A (Default)", command=self.load_default_scenario).grid(row=8, column=0, columnspan=2, pady=2)
+        ttk.Button(left_frame, text="Scenario B (Many Short Jobs)", command=self.load_scenario_b).grid(row=9, column=0, columnspan=2, pady=2)
+        ttk.Button(left_frame, text="Scenario C (Long vs Short)", command=self.load_scenario_c).grid(row=10, column=0, columnspan=2, pady=2)
+        
+        # Right panel - Simulation Controls & Results
+        right_frame = ttk.Frame(main_frame)
+        right_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), padx=10)
+        
+        # Round Robin Quantum
+        quantum_frame = ttk.LabelFrame(right_frame, text="Round Robin Settings", padding="10")
+        quantum_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=5)
+        ttk.Label(quantum_frame, text="Time Quantum:").grid(row=0, column=0)
+        self.quantum_spinbox = ttk.Spinbox(quantum_frame, from_=1, to=10, width=10)
+        self.quantum_spinbox.set(4)
+        self.quantum_spinbox.grid(row=0, column=1, padx=5)
+        
+        # Run buttons
+        button_frame = ttk.Frame(right_frame)
+        button_frame.grid(row=1, column=0, pady=10)
+        ttk.Button(button_frame, text="Run SRTF Simulation", command=self.run_srtf).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Run Round Robin", command=self.run_rr).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Compare Both", command=self.compare_both).pack(side=tk.LEFT, padx=5)
+        
+        # Results display
+        self.notebook = ttk.Notebook(right_frame)
+        self.notebook.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10)
+        
+        # Frames for results
+        self.srtf_frame = ttk.Frame(self.notebook)
+        self.rr_frame = ttk.Frame(self.notebook)
+        self.compare_frame = ttk.Frame(self.notebook)
+        
+        self.notebook.add(self.srtf_frame, text="SRTF Results")
+        self.notebook.add(self.rr_frame, text="Round Robin Results")
+        self.notebook.add(self.compare_frame, text="Comparison")
+        
+        # Configure weights
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=2)
+        right_frame.rowconfigure(2, weight=1)
+        right_frame.columnconfigure(0, weight=1)
+    
+    def add_process(self):
+        try:
+            arrival = int(self.arrival_entry.get())
+            burst = int(self.burst_entry.get())
+            priority = int(self.priority_entry.get())
+            
+            process = Process(f"P{self.next_pid}", arrival, burst, priority)
+            self.processes.append(process)
+            self.process_tree.insert('', 'end', text=process.pid, 
+                                    values=(process.arrival, process.burst, process.priority))
+            self.next_pid += 1
+            
+            # Clear entries
+            self.arrival_entry.delete(0, tk.END)
+            self.burst_entry.delete(0, tk.END)
+            self.priority_entry.delete(0, tk.END)
+            self.priority_entry.insert(0, "1")
+            
+        except ValueError:
+            messagebox.showerror("Error", "Please enter valid numbers")
+    
+    def remove_process(self):
+        selection = self.process_tree.selection()
+        if selection:
+            index = self.process_tree.index(selection[0])
+            self.process_tree.delete(selection[0])
+            self.processes.pop(index)
+    
+    def clear_all(self):
+        self.process_tree.delete(*self.process_tree.get_children())
+        self.processes.clear()
+        self.next_pid = 1
+    
+    def load_default_scenario(self):
+        self.clear_all()
+        test_processes = [
+            Process("P1", 0, 8, 2),
+            Process("P2", 1, 4, 1),
+            Process("P3", 2, 9, 3),
+            Process("P4", 3, 5, 2)
+        ]
+        for p in test_processes:
+            self.processes.append(p)
+            self.process_tree.insert('', 'end', text=p.pid, 
+                                    values=(p.arrival, p.burst, p.priority))
+        self.next_pid = 5
+    
+    def load_scenario_b(self):
+        self.clear_all()
+        test_processes = [
+            Process("P1", 0, 2, 1),
+            Process("P2", 1, 3, 2),
+            Process("P3", 2, 1, 3),
+            Process("P4", 3, 4, 1),
+            Process("P5", 4, 2, 2)
+        ]
+        for p in test_processes:
+            self.processes.append(p)
+            self.process_tree.insert('', 'end', text=p.pid, 
+                                    values=(p.arrival, p.burst, p.priority))
+        self.next_pid = 6
+    
+    def load_scenario_c(self):
+        self.clear_all()
+        test_processes = [
+            Process("P1", 0, 10, 1),
+            Process("P2", 1, 2, 2),
+            Process("P3", 2, 3, 3),
+            Process("P4", 3, 1, 1)
+        ]
+        for p in test_processes:
+            self.processes.append(p)
+            self.process_tree.insert('', 'end', text=p.pid, 
+                                    values=(p.arrival, p.burst, p.priority))
+        self.next_pid = 5
+    
+    def display_results(self, processes, gantt, title):
+        """Display results in a frame"""
+        # Create new frame for results
+        result_frame = ttk.Frame(self.compare_frame if title == "Comparison" else 
+                                 (self.srtf_frame if title == "SRTF" else self.rr_frame))
+        result_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Results table
+        tree = ttk.Treeview(result_frame, columns=('Arrival', 'Burst', 'Priority', 
+                                                    'Finish', 'WT', 'TAT', 'RT'), height=8)
+        tree.heading('#0', text='PID')
+        tree.heading('Arrival', text='Arrival')
+        tree.heading('Burst', text='Burst')
+        tree.heading('Priority', text='Priority')
+        tree.heading('Finish', text='Finish')
+        tree.heading('WT', text='Waiting')
+        tree.heading('TAT', text='Turnaround')
+        tree.heading('RT', text='Response')
+        
+        for col in tree['columns']:
+            tree.column(col, width=70)
+        tree.column('#0', width=50)
+        
+        total_wt = 0
+        total_tat = 0
+        total_rt = 0
+        
+        for p in processes:
+            tree.insert('', 'end', text=p.pid, 
+                       values=(p.arrival, p.burst, p.priority, 
+                              p.finish_time, p.waiting_time, p.turnaround_time, p.response_time))
+            total_wt += p.waiting_time
+            total_tat += p.turnaround_time
+            total_rt += p.response_time
+        
+        n = len(processes)
+        avg_wt = total_wt / n
+        avg_tat = total_tat / n
+        avg_rt = total_rt / n
+        
+        tree.pack(pady=10)
+        
+        # Statistics
+        stats_text = f"Average Waiting Time: {avg_wt:.2f}\n"
+        stats_text += f"Average Turnaround Time: {avg_tat:.2f}\n"
+        stats_text += f"Average Response Time: {avg_rt:.2f}"
+        
+        ttk.Label(result_frame, text=stats_text, font=('Arial', 10, 'bold')).pack(pady=5)
+        
+        # Gantt Chart
+        fig, ax = plt.subplots(figsize=(10, 2))
+        y_pos = 0
+        
+        for i, (process, start, end) in enumerate(gantt):
+            ax.barh(y_pos, end - start, left=start, height=0.5, 
+                   color=self.colors[i % len(self.colors)], edgecolor='black')
+            ax.text(start + (end - start)/2, y_pos, process.pid, 
+                   ha='center', va='center', fontweight='bold')
+        
+        ax.set_yticks([])
+        ax.set_xlabel('Time')
+        ax.set_title(f'{title} - Gantt Chart')
+        ax.grid(True, axis='x', alpha=0.3)
+        
+        canvas = FigureCanvasTkAgg(fig, result_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(pady=10)
+        
+        return avg_wt, avg_tat, avg_rt
+    
+    def run_srtf(self):
+        if not self.processes:
+            messagebox.showwarning("Warning", "No processes to simulate")
+            return
+        
+        # Clear previous results
+        for widget in self.srtf_frame.winfo_children():
+            widget.destroy()
+        
+        processes_copy = [Process(p.pid, p.arrival, p.burst, p.priority) for p in self.processes]
+        gantt, results = SRTFScheduler.simulate(processes_copy)
+        self.display_results(results, gantt, "SRTF")
+    
+    def run_rr(self):
+        if not self.processes:
+            messagebox.showwarning("Warning", "No processes to simulate")
+            return
+        
+        # Clear previous results
+        for widget in self.rr_frame.winfo_children():
+            widget.destroy()
+        
+        quantum = int(self.quantum_spinbox.get())
+        rr_scheduler = RoundRobinScheduler(quantum)
+        processes_copy = [Process(p.pid, p.arrival, p.burst, p.priority) for p in self.processes]
+        gantt, results = rr_scheduler.simulate(processes_copy)
+        self.display_results(results, gantt, "Round Robin")
+    
+    def compare_both(self):
+        if not self.processes:
+            messagebox.showwarning("Warning", "No processes to simulate")
+            return
+        
+        # Clear previous results
+        for widget in self.compare_frame.winfo_children():
+            widget.destroy()
+        
+        # Run SRTF
+        processes_srtf = [Process(p.pid, p.arrival, p.burst, p.priority) for p in self.processes]
+        gantt_srtf, results_srtf = SRTFScheduler.simulate(processes_srtf)
+        
+        # Run RR
+        quantum = int(self.quantum_spinbox.get())
+        rr_scheduler = RoundRobinScheduler(quantum)
+        processes_rr = [Process(p.pid, p.arrival, p.burst, p.priority) for p in self.processes]
+        gantt_rr, results_rr = rr_scheduler.simulate(processes_rr)
+        
+        # Calculate averages
+        avg_wt_srtf = sum(p.waiting_time for p in results_srtf) / len(results_srtf)
+        avg_tat_srtf = sum(p.turnaround_time for p in results_srtf) / len(results_srtf)
+        avg_rt_srtf = sum(p.response_time for p in results_srtf) / len(results_srtf)
+        
+        avg_wt_rr = sum(p.waiting_time for p in results_rr) / len(results_rr)
+        avg_tat_rr = sum(p.turnaround_time for p in results_rr) / len(results_rr)
+        avg_rt_rr = sum(p.response_time for p in results_rr) / len(results_rr)
+        
+        # Comparison table
+        compare_tree = ttk.Treeview(self.compare_frame, columns=('SRTF', 'Round Robin'), height=3)
+        compare_tree.heading('#0', text='Metric')
+        compare_tree.heading('SRTF', text='SRTF')
+        compare_tree.heading('Round Robin', text='Round Robin')
+        
+        compare_tree.insert('', 'end', text='Average Waiting Time', 
+                           values=(f"{avg_wt_srtf:.2f}", f"{avg_wt_rr:.2f}"))
+        compare_tree.insert('', 'end', text='Average Turnaround Time', 
+                           values=(f"{avg_tat_srtf:.2f}", f"{avg_tat_rr:.2f}"))
+        compare_tree.insert('', 'end', text='Average Response Time', 
+                           values=(f"{avg_rt_srtf:.2f}", f"{avg_rt_rr:.2f}"))
+        
+        compare_tree.pack(pady=10)
+        
+        # Analysis
+        analysis_text = "=== ANALYSIS ===\n\n"
+        
+        if avg_wt_srtf < avg_wt_rr:
+            analysis_text += "✓ SRTF has LOWER Average Waiting Time\n"
+        else:
+            analysis_text += "✓ Round Robin has LOWER Average Waiting Time\n"
+        
+        if avg_tat_srtf < avg_tat_rr:
+            analysis_text += "✓ SRTF has LOWER Average Turnaround Time\n"
+        else:
+            analysis_text += "✓ Round Robin has LOWER Average Turnaround Time\n"
+        
+        if avg_rt_srtf < avg_rt_rr:
+            analysis_text += "✓ SRTF has LOWER Response Time (better interactivity)\n\n"
+        else:
+            analysis_text += "✓ Round Robin has LOWER Response Time (better interactivity)\n\n"
+        
+        analysis_text += "=== RECOMMENDATION ===\n\n"
+        analysis_text += "• Use SRTF if you want to minimize average waiting times\n"
+        analysis_text += "  (good for batch systems)\n\n"
+        analysis_text += "• Use Round Robin if you need fair CPU distribution\n"
+        analysis_text += "  (good for time-sharing/interactive systems)\n\n"
+        analysis_text += "• Round Robin prevents process starvation but has more context switches"
+        
+        text_widget = tk.Text(self.compare_frame, wrap=tk.WORD, height=15, width=60)
+        text_widget.insert('1.0', analysis_text)
+        text_widget.config(state=tk.DISABLED)
+        text_widget.pack(pady=10)
+
+
+# Run the application
+if _name_ == "_main_":
+    root = tk.Tk()
+    app = SchedulingSimulator(root)
+    root.mainloop()
