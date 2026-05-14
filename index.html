@@ -1,64 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Diagonal Difference Calculator</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+    :root {
+      --bg:       #060b14;
+      --surface:  #0d1626;
+      --card:     #111d30;
+      --border:   #1e3050;
+      --blue:     #3b82f6;
+      --cyan:     #06b6d4;
+      --purple:   #8b5cf6;
+      --pink:     #ec4899;
+      --green:    #22c55e;
+      --yellow:   #facc15;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --radius:   14px;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
+      padding: 40px 16px 80px;
+    }
+
+    /* ── Animated background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 20% 10%, rgba(59,130,246,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 35% at 80% 80%, rgba(139,92,246,.10) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 700px;
+      margin: 0 auto;
       display: flex;
       flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Header ── */
+    header { text-align: center; padding: 8px 0 4px; }
+
+    .logo {
+      display: inline-flex;
       align-items: center;
-      padding: 40px 16px;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 18px;
     }
 
-    header {
-      text-align: center;
-      margin-bottom: 40px;
+    .logo-icon {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem;
+      box-shadow: 0 0 24px rgba(59,130,246,.35);
     }
 
-    header h1 {
-      font-size: 2rem;
-      font-weight: 800;
-      background: linear-gradient(135deg, #38bdf8, #818cf8);
+    h1 {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 900;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      letter-spacing: -0.5px;
     }
 
     header p {
-      margin-top: 8px;
-      color: #64748b;
+      color: var(--muted);
       font-size: 0.95rem;
+      margin-top: 6px;
     }
 
+    /* ── Card ── */
     .card {
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
       padding: 28px;
-      width: 100%;
-      max-width: 680px;
-      margin-bottom: 24px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      box-shadow: 0 8px 40px rgba(0,0,0,.4);
     }
 
-    .card h2 {
-      font-size: 0.75rem;
+    .card-label {
+      font-size: 0.68rem;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: #38bdf8;
+      letter-spacing: 2px;
+      color: var(--blue);
       margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    /* Controls */
+    .card-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Controls row ── */
     .controls {
       display: flex;
       align-items: center;
@@ -66,399 +126,498 @@
       flex-wrap: wrap;
     }
 
-    .controls label {
-      color: #94a3b8;
-      font-size: 0.9rem;
-      white-space: nowrap;
-    }
-
-    .controls input[type=number] {
-      width: 80px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: 1px solid #475569;
-      background: #0f172a;
-      color: #e2e8f0;
-      font-size: 1rem;
-      text-align: center;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .controls input[type=number]:focus { border-color: #38bdf8; }
-
-    .method-toggle {
+    .ctrl-group {
       display: flex;
-      gap: 8px;
+      flex-direction: column;
+      gap: 6px;
     }
 
-    .method-btn {
-      padding: 8px 18px;
-      border-radius: 8px;
-      border: 1px solid #475569;
-      background: transparent;
-      color: #94a3b8;
-      font-size: 0.85rem;
+    .ctrl-group label {
+      font-size: 0.75rem;
       font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .method-btn.active {
-      background: linear-gradient(135deg, #0ea5e9, #6366f1);
-      border-color: transparent;
-      color: #fff;
-    }
-
-    /* Matrix grid */
-    #matrix-grid {
-      display: inline-grid;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    .matrix-cell {
-      width: 58px;
-      height: 58px;
-      border-radius: 10px;
-      border: 2px solid #334155;
-      background: #0f172a;
-      color: #e2e8f0;
-      font-size: 1.1rem;
-      font-weight: 700;
-      text-align: center;
-      outline: none;
-      transition: all 0.2s;
-      font-family: 'Courier New', monospace;
-    }
-
-    .matrix-cell:focus { border-color: #38bdf8; background: #0c1a2e; }
-    .matrix-cell.main-diag { border-color: #38bdf8; background: #0c233e; color: #38bdf8; }
-    .matrix-cell.anti-diag { border-color: #818cf8; background: #17143a; color: #818cf8; }
-    .matrix-cell.both-diag { border-color: #a78bfa; background: #150e30; color: #c4b5fd; }
-
-    /* Calculate button */
-    #calc-btn {
-      width: 100%;
-      padding: 14px;
-      border-radius: 10px;
-      border: none;
-      background: linear-gradient(135deg, #0ea5e9, #6366f1);
-      color: #fff;
-      font-size: 1rem;
-      font-weight: 700;
-      cursor: pointer;
-      letter-spacing: 0.5px;
-      transition: opacity 0.2s, transform 0.1s;
-      margin-top: 4px;
-    }
-
-    #calc-btn:hover { opacity: 0.9; }
-    #calc-btn:active { transform: scale(0.98); }
-
-    /* Steps */
-    .steps-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-      font-family: 'Courier New', monospace;
-    }
-
-    .steps-table th {
-      color: #64748b;
-      font-size: 0.72rem;
+      color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 1px;
-      padding: 0 12px 10px;
-      text-align: left;
-      border-bottom: 1px solid #334155;
     }
 
-    .steps-table td {
+    input[type=number] {
+      width: 76px;
       padding: 10px 12px;
-      border-bottom: 1px solid #1e2d40;
-    }
-
-    .steps-table tr:last-child td { border-bottom: none; }
-
-    .steps-table .row-num { color: #64748b; }
-    .main-val { color: #38bdf8; font-weight: 700; }
-    .anti-val { color: #818cf8; font-weight: 700; }
-    .running { color: #94a3b8; font-size: 0.8rem; }
-
-    .totals-row td {
-      border-top: 1px solid #334155 !important;
-      padding-top: 14px !important;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 1.1rem;
+      font-family: 'JetBrains Mono', monospace;
       font-weight: 700;
+      text-align: center;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
     }
 
-    /* Result banner */
-    .result-banner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 4px;
+    input[type=number]:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.15);
     }
 
-    .result-formula {
-      font-family: 'Courier New', monospace;
-      font-size: 1rem;
-      color: #94a3b8;
+    /* ── Method pills ── */
+    .pills { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .pill {
+      padding: 9px 20px;
+      border-radius: 50px;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: 'Inter', sans-serif;
     }
 
-    .result-formula span { color: #e2e8f0; font-weight: 700; }
+    .pill:hover { border-color: #334d6e; color: var(--text); }
 
-    .result-value {
-      font-size: 2.5rem;
-      font-weight: 900;
-      background: linear-gradient(135deg, #38bdf8, #818cf8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      line-height: 1;
+    .pill.active-iter {
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(37,99,235,.4);
     }
 
+    .pill.active-rec {
+      background: linear-gradient(135deg, #6d28d9, #7c3aed);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(124,58,237,.4);
+    }
+
+    .pill.active-both {
+      background: linear-gradient(135deg, #0e7490, #7c3aed);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(124,58,237,.3);
+    }
+
+    /* ── Matrix ── */
+    .matrix-wrap { overflow-x: auto; }
+
+    #matrix-grid {
+      display: inline-grid;
+      gap: 10px;
+    }
+
+    .cell {
+      width: 62px; height: 62px;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 1.15rem;
+      font-weight: 700;
+      text-align: center;
+      outline: none;
+      transition: all .2s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .cell:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+      transform: scale(1.06);
+    }
+
+    .cell.main  { border-color: #3b82f6; background: #0d2044; color: #93c5fd; }
+    .cell.anti  { border-color: #8b5cf6; background: #1a0d38; color: #c4b5fd; }
+    .cell.both  { border-color: #a855f7; background: #160d30;
+                  color: #e879f9;
+                  box-shadow: 0 0 12px rgba(168,85,247,.3); }
+
+    /* ── Legend ── */
     .legend {
       display: flex;
-      gap: 20px;
+      gap: 18px;
       flex-wrap: wrap;
-      margin-top: 12px;
+      margin-top: 14px;
     }
 
     .legend-item {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 0.82rem;
-      color: #64748b;
+      font-size: 0.78rem;
+      color: var(--muted);
     }
 
-    .legend-dot {
-      width: 12px;
-      height: 12px;
+    .dot {
+      width: 10px; height: 10px;
       border-radius: 3px;
     }
 
-    .dot-main { background: #38bdf8; }
-    .dot-anti { background: #818cf8; }
-    .dot-both { background: #c4b5fd; }
-
-    #results-section { display: none; }
-
-    .badge {
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      margin-left: 10px;
+    /* ── Button ── */
+    #calc-btn {
+      width: 100%;
+      padding: 16px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 800;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: opacity .2s, transform .1s, box-shadow .2s;
+      box-shadow: 0 4px 20px rgba(99,102,241,.4);
     }
 
-    .badge-iter { background: #0e3a52; color: #38bdf8; }
-    .badge-rec  { background: #1e1a45; color: #818cf8; }
+    #calc-btn:hover { opacity: .92; box-shadow: 0 6px 28px rgba(99,102,241,.55); }
+    #calc-btn:active { transform: scale(.98); }
+
+    /* ── Results ── */
+    #results-section { display: none; }
+
+    .method-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .method-badge {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .badge-iter { background: #172554; color: #93c5fd; }
+    .badge-rec  { background: #2e1065; color: #c4b5fd; }
+
+    .complexity {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Steps table */
+    .steps {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+    }
+
+    .steps th {
+      color: var(--muted);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      padding: 0 14px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .steps td { padding: 11px 14px; border-bottom: 1px solid #0d1929; }
+    .steps tr:last-child td { border-bottom: none; }
+
+    .step-row { transition: background .15s; }
+    .step-row:hover { background: rgba(255,255,255,.02); }
+
+    .row-idx { color: var(--muted); }
+    .mv { color: #60a5fa; font-weight: 700; }
+    .av { color: #a78bfa; font-weight: 700; }
+    .run { color: #475569; font-size: 0.78rem; }
+
+    .total-row td {
+      border-top: 1px solid var(--border) !important;
+      padding-top: 14px !important;
+      font-weight: 700;
+    }
+
+    /* Answer box */
+    .answer-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 24px;
+    }
+
+    .formula {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      color: var(--muted);
+    }
+
+    .formula b { color: var(--text); font-weight: 700; }
+
+    .answer-number {
+      font-size: 3rem;
+      font-weight: 900;
+      font-family: 'JetBrains Mono', monospace;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+    }
+
+    /* Divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 20px 0;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Agree box */
+    .agree-box {
+      text-align: center;
+      padding: 20px;
+      background: #052e16;
+      border: 1px solid #166534;
+      border-radius: 14px;
+      margin-top: 8px;
+    }
+
+    .agree-box .agree-label {
+      color: #86efac;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    .agree-box .agree-num {
+      font-size: 2.6rem;
+      font-weight: 900;
+      color: #4ade80;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Animate in */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate { animation: fadeUp .35s ease forwards; }
   </style>
 </head>
 <body>
+<div class="wrap">
 
-<header>
-  <h1>Diagonal Difference Calculator</h1>
-  <p>Visualize iterative &amp; recursive solutions side by side</p>
-</header>
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⊠</div>
+    </div>
+    <h1>Diagonal Difference</h1>
+    <p>Interactive matrix calculator — iterative &amp; recursive</p>
+  </header>
 
-<!-- Setup card -->
-<div class="card">
-  <h2>Setup</h2>
-  <div class="controls">
-    <label>Matrix size n &times; n</label>
-    <input type="number" id="size-input" value="3" min="1" max="8" />
-    <div class="method-toggle">
-      <button class="method-btn active" data-method="iterative">Iterative</button>
-      <button class="method-btn" data-method="recursive">Recursive</button>
-      <button class="method-btn" data-method="both">Both</button>
+  <!-- Setup -->
+  <div class="card">
+    <div class="card-label">Configuration</div>
+    <div class="controls">
+      <div class="ctrl-group">
+        <label>Matrix size</label>
+        <input type="number" id="size-input" value="3" min="1" max="8"/>
+      </div>
+      <div class="ctrl-group">
+        <label>Method</label>
+        <div class="pills">
+          <button class="pill active-iter" data-m="iterative">Iterative</button>
+          <button class="pill" data-m="recursive">Recursive</button>
+          <button class="pill" data-m="both">Both</button>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Matrix card -->
-<div class="card">
-  <h2>Matrix Input</h2>
-  <div id="matrix-grid"></div>
-  <div class="legend" id="legend" style="display:none;">
-    <div class="legend-item"><div class="legend-dot dot-main"></div> Main diagonal (arr[i][i])</div>
-    <div class="legend-item"><div class="legend-dot dot-anti"></div> Anti-diagonal (arr[i][n-1-i])</div>
-    <div class="legend-item"><div class="legend-dot dot-both"></div> Both diagonals</div>
+  <!-- Matrix input -->
+  <div class="card">
+    <div class="card-label">Matrix Input</div>
+    <div class="matrix-wrap">
+      <div id="matrix-grid"></div>
+    </div>
+    <div class="legend" id="legend">
+      <div class="legend-item"><div class="dot" style="background:#3b82f6"></div> Main diagonal arr[i][i]</div>
+      <div class="legend-item"><div class="dot" style="background:#8b5cf6"></div> Anti-diagonal arr[i][n-1-i]</div>
+      <div class="legend-item"><div class="dot" style="background:#a855f7"></div> Both diagonals</div>
+    </div>
+    <br/>
+    <button id="calc-btn">⚡ Calculate Diagonal Difference</button>
   </div>
-  <br/>
-  <button id="calc-btn">Calculate</button>
-</div>
 
-<!-- Results card -->
-<div class="card" id="results-section">
-  <h2 id="results-title">Results</h2>
-  <div id="results-body"></div>
+  <!-- Results -->
+  <div class="card animate" id="results-section">
+    <div class="card-label" id="res-label">Results</div>
+    <div id="results-body"></div>
+  </div>
+
 </div>
 
 <script>
   let method = 'iterative';
   let n = 3;
 
-  // Method toggle
-  document.querySelectorAll('.method-btn').forEach(btn => {
+  // Pills
+  document.querySelectorAll('.pill').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      method = btn.dataset.method;
+      document.querySelectorAll('.pill').forEach(b => b.className = 'pill');
+      method = btn.dataset.m;
+      btn.classList.add('active-' + (method === 'iterative' ? 'iter' : method === 'recursive' ? 'rec' : 'both'));
     });
   });
 
-  // Build matrix grid
+  // Build grid
   function buildGrid() {
     n = Math.max(1, Math.min(8, parseInt(document.getElementById('size-input').value) || 3));
     const grid = document.getElementById('matrix-grid');
-    grid.style.gridTemplateColumns = `repeat(${n}, 58px)`;
+    grid.style.gridTemplateColumns = `repeat(${n}, 62px)`;
     grid.innerHTML = '';
+
+    const sampleData = [
+      [11, 2, 4],
+      [4, 5, 6],
+      [10, 8, -12]
+    ];
+
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
         const inp = document.createElement('input');
         inp.type = 'number';
-        inp.className = 'matrix-cell';
-        inp.value = 0;
-        inp.dataset.row = i;
-        inp.dataset.col = j;
+        inp.className = 'cell';
+        inp.value = (n === 3 && sampleData[i]?.[j] !== undefined) ? sampleData[i][j] : 0;
+        inp.dataset.r = i; inp.dataset.c = j;
         colorCell(inp, i, j);
         inp.addEventListener('focus', () => inp.select());
         grid.appendChild(inp);
       }
     }
-    document.getElementById('legend').style.display = 'flex';
     document.getElementById('results-section').style.display = 'none';
   }
 
-  function colorCell(inp, i, j) {
-    const isMain = i === j;
-    const isAnti = i + j === n - 1;
-    inp.classList.remove('main-diag','anti-diag','both-diag');
-    if (isMain && isAnti) inp.classList.add('both-diag');
-    else if (isMain)      inp.classList.add('main-diag');
-    else if (isAnti)      inp.classList.add('anti-diag');
+  function colorCell(el, i, j) {
+    const isM = i === j, isA = i + j === n - 1;
+    el.classList.remove('main','anti','both');
+    if (isM && isA) el.classList.add('both');
+    else if (isM)   el.classList.add('main');
+    else if (isA)   el.classList.add('anti');
   }
 
   document.getElementById('size-input').addEventListener('change', buildGrid);
 
-  // Read matrix values
   function getMatrix() {
     const arr = Array.from({length: n}, () => Array(n).fill(0));
-    document.querySelectorAll('.matrix-cell').forEach(inp => {
-      arr[inp.dataset.row][inp.dataset.col] = parseInt(inp.value) || 0;
+    document.querySelectorAll('.cell').forEach(el => {
+      arr[el.dataset.r][el.dataset.c] = parseInt(el.value) || 0;
     });
     return arr;
   }
 
-  // Iterative simulation
-  function simulateIterative(arr) {
+  function simulate(arr) {
     const steps = [];
     let ltr = 0, rtl = 0;
     for (let i = 0; i < n; i++) {
-      const mv = arr[i][i], av = arr[i][n - 1 - i];
+      const mv = arr[i][i], av = arr[i][n-1-i];
       ltr += mv; rtl += av;
-      steps.push({ row: i, mainVal: mv, antiVal: av, ltrRunning: ltr, rtlRunning: rtl });
+      steps.push({i, mv, av, ltr, rtl});
     }
-    return { steps, ltr, rtl, result: Math.abs(ltr - rtl) };
+    return {steps, ltr, rtl, result: Math.abs(ltr - rtl)};
   }
 
-  // Recursive simulation (trace)
-  function simulateRecursive(arr) {
-    const steps = [];
-    let ltr = 0, rtl = 0;
-    function rec(i) {
-      if (i === n) return;
-      const mv = arr[i][i], av = arr[i][n - 1 - i];
-      ltr += mv; rtl += av;
-      steps.push({ row: i, mainVal: mv, antiVal: av, ltrRunning: ltr, rtlRunning: rtl });
-      rec(i + 1);
-    }
-    rec(0);
-    return { steps, ltr, rtl, result: Math.abs(ltr - rtl) };
-  }
+  function renderMethod(title, badgeClass, complexitySpace, sim) {
+    const rows = sim.steps.map(s => `
+      <tr class="step-row">
+        <td class="row-idx">[${s.i}]</td>
+        <td class="mv">+${s.mv}</td>
+        <td class="run">= ${s.ltr}</td>
+        <td class="av">+${s.av}</td>
+        <td class="run">= ${s.rtl}</td>
+      </tr>`).join('');
 
-  function renderResult(label, badgeClass, sim) {
     return `
-      <div style="margin-bottom:24px;">
-        <div style="font-size:0.8rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">
-          ${label} <span class="badge ${badgeClass}">${badgeClass === 'badge-iter' ? 'O(1) space' : 'O(n) space'}</span>
+      <div class="method-header">
+        <span class="method-badge ${badgeClass}">${title}</span>
+        <span class="complexity">Time O(n) · Space ${complexitySpace}</span>
+      </div>
+      <table class="steps">
+        <thead><tr>
+          <th>Row</th><th>Main diag</th><th>Running</th><th>Anti diag</th><th>Running</th>
+        </tr></thead>
+        <tbody>
+          ${rows}
+          <tr class="total-row">
+            <td class="row-idx">Total</td>
+            <td class="mv" colspan="2">${sim.ltr}</td>
+            <td class="av" colspan="2">${sim.rtl}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="answer-box">
+        <div class="formula">
+          |<b>${sim.ltr}</b> &minus; <b>${sim.rtl}</b>| =
         </div>
-        <table class="steps-table">
-          <thead>
-            <tr>
-              <th>Row</th>
-              <th>Main diag</th>
-              <th>Running</th>
-              <th>Anti diag</th>
-              <th>Running</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${sim.steps.map(s => `
-              <tr>
-                <td class="row-num">[${s.row}]</td>
-                <td class="main-val">+${s.mainVal}</td>
-                <td class="running">= ${s.ltrRunning}</td>
-                <td class="anti-val">+${s.antiVal}</td>
-                <td class="running">= ${s.rtlRunning}</td>
-              </tr>
-            `).join('')}
-            <tr class="totals-row">
-              <td class="row-num">Total</td>
-              <td class="main-val" colspan="2">${sim.ltr}</td>
-              <td class="anti-val" colspan="2">${sim.rtl}</td>
-            </tr>
-          </tbody>
-        </table>
-        <br/>
-        <div class="result-banner">
-          <div class="result-formula">
-            |<span>${sim.ltr}</span> &minus; <span>${sim.rtl}</span>|
-          </div>
-          <div class="result-value">${sim.result}</div>
-        </div>
+        <div class="answer-number">${sim.result}</div>
       </div>`;
   }
 
   document.getElementById('calc-btn').addEventListener('click', () => {
     const arr = getMatrix();
-    const section = document.getElementById('results-section');
-    const body    = document.getElementById('results-body');
-    const title   = document.getElementById('results-title');
+    const sec  = document.getElementById('results-section');
+    const body = document.getElementById('results-body');
+    const lbl  = document.getElementById('res-label');
 
-    section.style.display = 'block';
+    const sim = simulate(arr);
 
     if (method === 'iterative') {
-      title.textContent = 'Results — Iterative';
-      body.innerHTML = renderResult('Iterative Method', 'badge-iter', simulateIterative(arr));
+      lbl.textContent = 'Results';
+      body.innerHTML = renderMethod('Iterative', 'badge-iter', 'O(1)', sim);
     } else if (method === 'recursive') {
-      title.textContent = 'Results — Recursive';
-      body.innerHTML = renderResult('Recursive Method', 'badge-rec', simulateRecursive(arr));
+      lbl.textContent = 'Results';
+      body.innerHTML = renderMethod('Recursive', 'badge-rec', 'O(n)', sim);
     } else {
-      title.textContent = 'Results — Comparison';
-      const iter = simulateIterative(arr);
-      const rec  = simulateRecursive(arr);
+      lbl.textContent = 'Comparison';
       body.innerHTML =
-        renderResult('Iterative Method', 'badge-iter', iter) +
-        '<hr style="border-color:#334155;margin:8px 0 24px"/>' +
-        renderResult('Recursive Method', 'badge-rec', rec) +
-        `<div style="margin-top:16px;padding:16px;background:#0f172a;border-radius:10px;text-align:center;">
-           <span style="color:#64748b;font-size:0.85rem;">Both methods agree: </span>
-           <span style="font-size:1.4rem;font-weight:900;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-             ${iter.result === rec.result ? '✓ ' + iter.result : '✗ Mismatch'}
-           </span>
+        renderMethod('Iterative', 'badge-iter', 'O(1)', sim) +
+        '<div class="divider">Recursive</div>' +
+        renderMethod('Recursive', 'badge-rec', 'O(n)', sim) +
+        `<div class="agree-box">
+           <div class="agree-label">✓ Both methods agree</div>
+           <div class="agree-num">${sim.result}</div>
          </div>`;
     }
 
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    sec.style.display = 'block';
+    sec.style.animation = 'none';
+    sec.offsetHeight;
+    sec.style.animation = 'fadeUp .35s ease forwards';
+    sec.scrollIntoView({behavior:'smooth', block:'start'});
   });
 
-  // Init
   buildGrid();
 </script>
 </body>
